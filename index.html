@@ -1,11 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Random Number Generator</title>
+    <title>Tetris Random Generator</title>
+    <style>
+        canvas {
+            margin: 10px;
+        }
+    </style>
 </head>
 <body>
-    <button id="generateButton">Generate Random Number</button>
-    <p id="randomNumber"></p>
+    <button id="generateButton">Generate Tetris Figure</button>
+    <div>
+        <p>Player 1 (Blue)</p>
+        <canvas id="player1Canvas" width="200" height="200"></canvas>
+    </div>
+    <div>
+        <p>Player 2 (Yellow)</p>
+        <canvas id="player2Canvas" width="200" height="200"></canvas>
+    </div>
 
     <script src="script.js"></script>
 </body>
