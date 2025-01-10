@@ -43,10 +43,15 @@
 
       try {
         logMessage('Requesting Bluetooth device...');
+        const deviceNamePrefix = 'Схрон'; 
         const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [serviceUuid]
-        });
+          filters: [
+            {
+              namePrefix: deviceNamePrefix, // Filter by name prefix
+            },
+          ],
+          optionalServices: [serviceUuid],
+        }
 
         logMessage('Connecting to GATT server...');
         document.getElementById('status').textContent = 'Status: Connecting...';
