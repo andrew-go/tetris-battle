@@ -44,6 +44,12 @@
       try {
         // Check if there are previously allowed devices
         const devices = await navigator.bluetooth.getDevices();
+    
+        // Log all devices for debugging
+        logMessage('Available paired devices:');
+        devices.forEach((device, index) => {
+          logMessage(`[${index}] Name: ${device.name || 'Unnamed'}, ID: ${device.id}`);
+        });
         const savedDevice = devices.find((device) => device.name && device.name.startsWith('Схрон'));
     
         if (savedDevice) {
