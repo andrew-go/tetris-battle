@@ -81,16 +81,6 @@
         console.error('Failed to connect:', error);
       }
     }
-    
-    async function disconnectBLE() {
-      if (!bleDevice) return;
-      if (bleDevice.gatt.connected) {
-        await bleDevice.gatt.disconnect();
-        console.log('Disconnected from BLE device.');
-        document.getElementById('status').textContent = 'Status: Disconnected';
-      }
-    }
-    
     async function sendData() {
       const inputField = document.getElementById('inputField');
       const value = inputField.value;
@@ -111,7 +101,6 @@
     
     // Add event listeners
     document.getElementById('sendButton').addEventListener('click', sendData);
-    document.getElementById('disconnectButton').addEventListener('click', disconnectBLE);
     
     // Automatically attempt to connect to BLE when the page loads
     connectBLE();
