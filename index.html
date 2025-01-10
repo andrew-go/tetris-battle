@@ -40,10 +40,21 @@
     async function connectBLE() {
       const serviceUuid = '12345678-1234-1234-1234-123456789abc';
       const characteristicUuid = 'abcd1234-5678-90ab-cdef-1234567890ab';
-
+    
       try {
+        // Check if there are previously allowed devices
+        const devices = await navigator.bluetooth.getDevices();
+        const savedDevice = devices.find((device) => device.name && device.name.startsWith('Схрон'));
+    
+        if (savedDevice) {
+          logMessage(`Found previously allowed device: ${savedDevice.name}`);
+          await connectToDeviceAndSetup(savedDevice, serviceUuid, characteristicUuid);
+          return;
+        }
+    
+        // No previously allowed device, request a new one
         logMessage('Requesting Bluetooth device...');
-        const deviceNamePrefix = 'Схрон'; 
+        const deviceNamePrefix = 'Схрон';
         const device = await navigator.bluetooth.requestDevice({
           filters: [
             {
@@ -52,19 +63,28 @@
           ],
           optionalServices: [serviceUuid],
         });
-
+    
         logMessage('Connecting to GATT server...');
-        document.getElementById('status').textContent = 'Status: Connecting...';
-
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(serviceUuid);
-        bleCharacteristic = await service.getCharacteristic(characteristicUuid);
-
-        logMessage('Connected to BLE device!');
-        document.getElementById('status').textContent = 'Status: Connected';
+        await connectToDeviceAndSetup(device, serviceUuid, characteristicUuid);
       } catch (error) {
         logMessage(`Connection failed: ${error}`);
         document.getElementById('status').textContent = 'Status: Failed to connect';
+      }
+    }
+    
+    async function connectToDeviceAndSetup(device, serviceUuid, characteristicUuid) {
+      try {
+        logMessage(`Connecting to device: ${device.name}`);
+        document.getElementById('status').textContent = 'Status: Connecting...';
+    
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(serviceUuid);
+        bleCharacteristic = await service.getCharacteristic(characteristicUuid);
+    
+        logMessage('Connected to BLE device!');
+        document.getElementById('status').textContent = `Status: Connected to ${device.name}`;
+      } catch (error) {
+        logMessage(`Failed to connect to device: ${error}`);
       }
     }
 
