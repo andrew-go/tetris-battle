@@ -28,64 +28,91 @@
 
   <script>
     let bleCharacteristic;
-
-    // Function to log messages to the log area
-    function logMessage(message) {
-      const logArea = document.getElementById('logArea');
-      const timestamp = new Date().toLocaleTimeString();
-      logArea.innerHTML += `[${timestamp}] ${message}<br>`;
-      logArea.scrollTop = logArea.scrollHeight; // Auto-scroll to the bottom
-    }
-
+    let bleDevice;
+    
     async function connectBLE() {
       const serviceUuid = '12345678-1234-1234-1234-123456789abc';
       const characteristicUuid = 'abcd1234-5678-90ab-cdef-1234567890ab';
-
+    
       try {
-        logMessage('Requesting Bluetooth device...');
-        const device = await navigator.bluetooth.requestDevice({
+        // Check if there's a previously saved device
+        const savedDeviceId = localStorage.getItem('savedDeviceId');
+        if (savedDeviceId) {
+          console.log('Searching for saved device...');
+          const devices = await navigator.bluetooth.getDevices();
+          bleDevice = devices.find((device) => device.id === savedDeviceId);
+    
+          if (bleDevice) {
+            console.log('Found saved device:', bleDevice.name);
+            await connectToDeviceAndSetup(bleDevice, serviceUuid, characteristicUuid);
+            return;
+          } else {
+            console.log('Saved device not found.');
+            localStorage.removeItem('savedDeviceId'); // Clear invalid device ID
+          }
+        }
+    
+        // Request a new device if no saved device exists
+        console.log('Requesting new Bluetooth device...');
+        bleDevice = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
-          optionalServices: [serviceUuid]
+          optionalServices: [serviceUuid],
         });
-
-        logMessage('Connecting to GATT server...');
-        document.getElementById('status').textContent = 'Status: Connecting...';
-
+    
+        // Save the device ID for future auto-connect
+        localStorage.setItem('savedDeviceId', bleDevice.id);
+    
+        await connectToDeviceAndSetup(bleDevice, serviceUuid, characteristicUuid);
+      } catch (error) {
+        console.error('Connection failed:', error);
+      }
+    }
+    
+    async function connectToDeviceAndSetup(device, serviceUuid, characteristicUuid) {
+      try {
+        console.log('Connecting to GATT server...');
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(serviceUuid);
         bleCharacteristic = await service.getCharacteristic(characteristicUuid);
-
-        logMessage('Connected to BLE device!');
-        document.getElementById('status').textContent = 'Status: Connected';
+    
+        console.log('Connected to BLE device:', device.name);
+        document.getElementById('status').textContent = `Status: Connected to ${device.name}`;
       } catch (error) {
-        logMessage(`Connection failed: ${error}`);
-        document.getElementById('status').textContent = 'Status: Failed to connect';
+        console.error('Failed to connect:', error);
       }
     }
-
+    
+    async function disconnectBLE() {
+      if (!bleDevice) return;
+      if (bleDevice.gatt.connected) {
+        await bleDevice.gatt.disconnect();
+        console.log('Disconnected from BLE device.');
+        document.getElementById('status').textContent = 'Status: Disconnected';
+      }
+    }
+    
     async function sendData() {
       const inputField = document.getElementById('inputField');
       const value = inputField.value;
-
+    
       if (!bleCharacteristic) {
-        logMessage('Error: Not connected to ESP32-C3!');
         alert('Please connect to the ESP32-C3 first!');
         return;
       }
-
+    
       try {
         const encoder = new TextEncoder();
         await bleCharacteristic.writeValue(encoder.encode(value));
-        logMessage(`Data sent: ${value}`);
+        console.log(`Data sent: ${value}`);
       } catch (error) {
-        logMessage(`Failed to send data: ${error}`);
         console.error('Failed to send data:', error);
       }
     }
-
+    
     // Add event listeners
     document.getElementById('sendButton').addEventListener('click', sendData);
-
+    document.getElementById('disconnectButton').addEventListener('click', disconnectBLE);
+    
     // Automatically attempt to connect to BLE when the page loads
     connectBLE();
   </script>
