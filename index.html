@@ -1,26 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tetris Battle</title>
-    <style>
-        canvas {
-            margin: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32-C3 BLE Controller</title>
 </head>
 <body>
-    <button id="generateButton">Generate Tetris Figure</button>
-    <div>
-        <p>Player 1 (Blue)</p>
-        <canvas id="player1Canvas" width="200" height="200"></canvas>
-    </div>
-    <div>
-        <p>Player 2 (Yellow)</p>
-        <canvas id="player2Canvas" width="200" height="200"></canvas>
-    </div>
+  <h1>ESP32-C3 BLE Controller</h1>
+  <p>Enter a number and send it to the ESP32-C3:</p>
+  <input type="text" id="inputField" placeholder="Enter number" />
+  <button id="sendButton">Send</button>
+  <p id="status">Status: Not connected</p>
 
-    <script src="script.js"></script>
+  <script>
+    let bleCharacteristic;
+
+    async function connectBLE() {
+      const serviceUuid = '12345678-1234-1234-1234-123456789abc';
+      const characteristicUuid = 'abcd1234-5678-90ab-cdef-1234567890ab';
+
+      try {
+        // Request a BLE device
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [serviceUuid]
+        });
+
+        document.getElementById('status').textContent = 'Status: Connecting...';
+
+        // Connect to GATT server
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(serviceUuid);
+        bleCharacteristic = await service.getCharacteristic(characteristicUuid);
+
+        document.getElementById('status').textContent = 'Status: Connected';
+      } catch (error) {
+        console.error('Connection failed:', error);
+        document.getElementById('status').textContent = 'Status: Failed to connect';
+      }
+    }
+
+    async function sendData() {
+      const inputField = document.getElementById('inputField');
+      const value = inputField.value;
+
+      if (!bleCharacteristic) {
+        alert('Please connect to the ESP32-C3 first!');
+        return;
+      }
+
+      try {
+        const encoder = new TextEncoder();
+        await bleCharacteristic.writeValue(encoder.encode(value));
+        alert('Data sent: ' + value);
+      } catch (error) {
+        console.error('Failed to send data:', error);
+      }
+    }
+
+    // Add event listeners
+    document.getElementById('sendButton').addEventListener('click', sendData);
+
+    // Automatically attempt to connect to BLE when the page loads
+    connectBLE();
+  </script>
 </body>
 </html>
