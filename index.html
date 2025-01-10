@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32-C3 BLE Controller</title>
+  <style>
+    #logArea {
+      width: 100%;
+      height: 150px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      overflow-y: scroll;
+      font-family: monospace;
+      background-color: #f9f9f9;
+    }
+  </style>
 </head>
 <body>
   <h1>ESP32-C3 BLE Controller</h1>
@@ -12,30 +23,42 @@
   <button id="sendButton">Send</button>
   <p id="status">Status: Not connected</p>
 
+  <h2>Logs:</h2>
+  <div id="logArea"></div>
+
   <script>
     let bleCharacteristic;
+
+    // Function to log messages to the log area
+    function logMessage(message) {
+      const logArea = document.getElementById('logArea');
+      const timestamp = new Date().toLocaleTimeString();
+      logArea.innerHTML += `[${timestamp}] ${message}<br>`;
+      logArea.scrollTop = logArea.scrollHeight; // Auto-scroll to the bottom
+    }
 
     async function connectBLE() {
       const serviceUuid = '12345678-1234-1234-1234-123456789abc';
       const characteristicUuid = 'abcd1234-5678-90ab-cdef-1234567890ab';
 
       try {
-        // Request a BLE device
+        logMessage('Requesting Bluetooth device...');
         const device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: [serviceUuid]
         });
 
+        logMessage('Connecting to GATT server...');
         document.getElementById('status').textContent = 'Status: Connecting...';
 
-        // Connect to GATT server
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(serviceUuid);
         bleCharacteristic = await service.getCharacteristic(characteristicUuid);
 
+        logMessage('Connected to BLE device!');
         document.getElementById('status').textContent = 'Status: Connected';
       } catch (error) {
-        console.error('Connection failed:', error);
+        logMessage(`Connection failed: ${error}`);
         document.getElementById('status').textContent = 'Status: Failed to connect';
       }
     }
@@ -45,6 +68,7 @@
       const value = inputField.value;
 
       if (!bleCharacteristic) {
+        logMessage('Error: Not connected to ESP32-C3!');
         alert('Please connect to the ESP32-C3 first!');
         return;
       }
@@ -52,8 +76,9 @@
       try {
         const encoder = new TextEncoder();
         await bleCharacteristic.writeValue(encoder.encode(value));
-        alert('Data sent: ' + value);
+        logMessage(`Data sent: ${value}`);
       } catch (error) {
+        logMessage(`Failed to send data: ${error}`);
         console.error('Failed to send data:', error);
       }
     }
