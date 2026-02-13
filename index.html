@@ -51,6 +51,33 @@
         .startBtn:hover{ background:#0b0b0b; }
         .startBtn:active{ transform: translateY(1px); }
 
+        /* --- Loading Bar --- */
+        .loaderContainer{
+            display:none;
+            flex-direction:column;
+            align-items:center;
+            gap:15px;
+            width:240px;
+        }
+        .loadingText{
+            font-size:16px;
+            color:#fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .barOuter{
+            width:100%;
+            height:16px;
+            border:2px solid #fff;
+            padding:2px;
+        }
+        .barInner{
+            width:0%;
+            height:100%;
+            background:#fff;
+            transition: width 0.2s ease;
+        }
+
         .stage{
             width:min(760px, 92vw);
             display:flex;
@@ -190,6 +217,36 @@
             min-height: 1.4em;
         }
 
+        /* --- Password / Gift UI --- */
+        #giftSection {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        #passwordInput {
+            background: #000;
+            border: 2px solid #fff;
+            color: #fff;
+            padding: 8px;
+            font-family: inherit;
+            text-align: center;
+            width: 120px;
+        }
+        #finalGiftWrap {
+            display: none;
+            width: min(520px, 100%);
+            margin: 20px auto 0;
+            border: 3px solid #fff;
+            background: #000;
+        }
+        #finalGiftWrap img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
         .btnRow{
             display:flex;
             justify-content:center;
@@ -271,6 +328,13 @@
 
 <div class="startScreen" id="startScreen" aria-label="Start screen">
     <button class="startBtn" id="startBtn" type="button">ПОЧАТИ</button>
+
+    <div class="loaderContainer" id="loaderContainer">
+        <div class="loadingText" id="loadingText">Завантаження...</div>
+        <div class="barOuter">
+            <div class="barInner" id="barInner"></div>
+        </div>
+    </div>
 </div>
 
 <main class="stage" id="gameStage" aria-label="Undertale puzzle scene">
@@ -304,18 +368,27 @@
         </div>
 
         <div class="footerHint" id="statusLine">Натисни ПОЧАТИ.</div>
+
+        <div id="giftSection">
+            <input type="text" id="passwordInput" placeholder="Введіть тут..." />
+            <button class="btn" id="giftBtn" type="button">Отримати подарунок</button>
+        </div>
+    </section>
+
+    <section id="finalGiftWrap" class="box">
+        <img src="https://i.ibb.co/hR8YgNbt/certificate.png" alt="Сертифікат" />
     </section>
 
 </main>
 
 <!-- Background music (starts after user presses ПОЧАТИ) -->
 <audio id="bgm" loop preload="auto">
-  <source src="./bgm.mp3" type="audio/mpeg">
+    <source src="bgm.mp3" type="audio/mpeg">
 </audio>
 
 <!-- Talking sound (played while text is typing) -->
 <audio id="talkingSfx" preload="auto">
-  <source src="./talking.mp3" type="audio/mpeg">
+    <source src="talking.mp3" type="audio/mpeg">
 </audio>
 
 <script>
@@ -326,7 +399,7 @@
         var LEVELS = [
             { name: 'Рівень 1', image: 'https://i.ibb.co/2Gx8XZL/image.png', reveal: 'https://i.ibb.co/k2hxRSC9/image.png' },
             { name: 'Рівень 2', image: 'https://i.ibb.co/kVqjyPW0/image.png', reveal: 'https://i.ibb.co/67q7d8vD/image.png' },
-            { name: 'Рівень 3', image: 'https://i.ibb.co/V0p0P6Kq/image.png', reveal: 'https://i.ibb.co/Y79mC9fC/image.png' }
+            { name: 'Рівень 3', image: 'https://i.ibb.co/FL4G4454/image.png', reveal: 'https://i.ibb.co/23GgwVPk/image.png' }
         ];
 
         var currentLevel = 0;
@@ -341,6 +414,9 @@
 
         var startScreen = document.getElementById('startScreen');
         var startBtn = document.getElementById('startBtn');
+        var loaderContainer = document.getElementById('loaderContainer');
+        var barInner = document.getElementById('barInner');
+        var loadingText = document.getElementById('loadingText');
         var stage = document.getElementById('gameStage');
 
         var gridEl = document.getElementById('grid');
@@ -352,6 +428,11 @@
         var revealWrap = document.getElementById('revealWrap');
         var revealImg  = document.getElementById('revealImg');
         var statusLine = document.getElementById('statusLine');
+
+        var giftSection = document.getElementById('giftSection');
+        var giftBtn = document.getElementById('giftBtn');
+        var passwordInput = document.getElementById('passwordInput');
+        var finalGiftWrap = document.getElementById('finalGiftWrap');
 
         var bgm = document.getElementById('bgm');
         var talkingSfx = document.getElementById('talkingSfx');
@@ -630,13 +711,97 @@
                 '* ' + getLevel().name + '.'
             );
         } else {
+            // End of Level 3
+            hideReveal();
+            if(gridEl) gridEl.style.display = 'none';
+            var btnRow = document.querySelector('.btnRow');
+            if(btnRow) btnRow.style.display = 'none';
+            if(statusLine) statusLine.style.display = 'none';
+
             typewriter(
                 speechEl,
-                '* ...\n' +
-                '* Ти пройшов(ла) всі 3 рівні.\n' +
-                '* Непогано.'
+                '* Лізу, я кохаю тебе без тями!\n' +
+                '* Ти найкраще що є у моєму житті!\n' +
+                '* Будь зі мною завжди!'
             );
-            setStatus('Усі рівні пройдено!');
+            setStatus('Кінець гри?');
+
+            setTimeout(function(){
+                typewriter(
+                    speechEl,
+                    '* Я знаю, що ми далеко..\n' +
+                    '* Але всеодно хочу подарувати тобі подарунок'
+                );
+                if(giftSection){
+                    giftSection.style.display = 'flex';
+                    if(passwordInput) passwordInput.style.display = 'none';
+                }
+            }, 3500);
+        }
+    }
+
+    var giftStage = 0; // 0: initial, 1: year, 2: month, 3: day
+    if(giftBtn){
+        giftBtn.addEventListener('click', function(){
+            if(giftStage === 0){
+                typewriter(
+                    speechEl,
+                    '* Ха ха\n' +
+                    '* Думала все так просто?\n' +
+                    '* Треба ввести пароль. Це рік нашого весілля'
+                );
+                if(passwordInput){
+                    passwordInput.style.display = 'block';
+                    passwordInput.focus();
+                }
+                giftStage = 1;
+                return;
+            }
+
+            var val = passwordInput.value.trim();
+
+            if(giftStage === 1){
+                if(val === '2020'){
+                    typewriter(
+                        speechEl,
+                        '* Ха ха\n' +
+                        '* А як де місяць?'
+                    );
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                    giftStage = 2;
+                }
+            } else if(giftStage === 2){
+                if(val === '07' || val === '7'){
+                    typewriter(
+                        speechEl,
+                        '* А день?'
+                    );
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                    giftStage = 3;
+                }
+            } else if(giftStage === 3){
+                if(val === '07' || val === '7'){
+                    typewriter(
+                        speechEl,
+                        '* Не добре, не буду тебе катувати..\n' +
+                        '* Ось твій подарунок'
+                    );
+                    if(giftSection) giftSection.style.display = 'none';
+                    if(finalGiftWrap){
+                        finalGiftWrap.style.display = 'block';
+                        finalGiftWrap.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    setStatus('Вітаю!');
+                }
+            }
+        });
+
+        if(passwordInput){
+            passwordInput.addEventListener('keydown', function(e){
+                if(e.key === 'Enter') giftBtn.click();
+            });
         }
     }
 
@@ -698,20 +863,67 @@
 
     if(startBtn){
         startBtn.addEventListener('click', function(){
-            // Hide start screen
-            if(startScreen) startScreen.style.display = 'none';
+            // Show loader, hide button
+            startBtn.style.display = 'none';
+            if(loaderContainer) loaderContainer.style.display = 'flex';
 
-            // Start BGM on this gesture, and separately unlock talking SFX
-            startBgm();
-            unlockAudio();
+            var assets = [
+                'bgm.mp3',
+                'talking.mp3',
+                'https://i.ibb.co/bRg1fYvQ/image.png',
+                'https://i.ibb.co/2Gx8XZL/image.png',
+                'https://i.ibb.co/k2hxRSC9/image.png',
+                'https://i.ibb.co/kVqjyPW0/image.png',
+                'https://i.ibb.co/67q7d8vD/image.png',
+                'https://i.ibb.co/FL4G4454/image.png',
+                'https://i.ibb.co/23GgwVPk/image.png',
+                'https://i.ibb.co/hR8YgNbt/certificate.png'
+            ];
 
-            // Start level 1
-            currentLevel = 0;
-            startNewShuffledGame(
-                '* Привіт.\n' +
-                '* Я вже все перемішав.\n' +
-                '* Спробуй скласти пазл.'
-            );
+            var loadedCount = 0;
+            var total = assets.length;
+
+            function updateProgress(){
+                loadedCount++;
+                var percent = Math.floor((loadedCount / total) * 100);
+                if(barInner) barInner.style.width = percent + '%';
+                if(loadingText) loadingText.textContent = 'ЗАВАНТАЖЕННЯ... ' + percent + '%';
+
+                if(loadedCount >= total){
+                    setTimeout(finishLoading, 400);
+                }
+            }
+
+            function finishLoading(){
+                if(startScreen) startScreen.style.display = 'none';
+
+                // Start BGM on this gesture, and separately unlock talking SFX
+                startBgm();
+                unlockAudio();
+
+                // Start level 1
+                currentLevel = 0;
+                startNewShuffledGame(
+                    '* Привіт.\n' +
+                    '* Я вже все перемішав.\n' +
+                    '* Спробуй скласти пазл.'
+                );
+            }
+
+            assets.forEach(function(url){
+                if(url.match(/\.(mp3|wav|ogg)$/i)){
+                    var a = new Audio();
+                    a.addEventListener('canplaythrough', updateProgress, { once: true });
+                    a.addEventListener('error', updateProgress, { once: true });
+                    a.src = url;
+                    a.load();
+                } else {
+                    var img = new Image();
+                    img.onload = updateProgress;
+                    img.onerror = updateProgress;
+                    img.src = url;
+                }
+            });
         });
     }
 
