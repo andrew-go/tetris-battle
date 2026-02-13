@@ -234,18 +234,6 @@
             text-align: center;
             width: 120px;
         }
-        #finalGiftWrap {
-            display: none;
-            width: min(520px, 100%);
-            margin: 20px auto 0;
-            border: 3px solid #fff;
-            background: #000;
-        }
-        #finalGiftWrap img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
 
         .btnRow{
             display:flex;
@@ -373,10 +361,6 @@
             <input type="text" id="passwordInput" placeholder="Введіть тут..." />
             <button class="btn" id="giftBtn" type="button">Отримати подарунок</button>
         </div>
-    </section>
-
-    <section id="finalGiftWrap" class="box">
-        <img src="https://i.ibb.co/hR8YgNbt/certificate.png" alt="Сертифікат" />
     </section>
 
 </main>
@@ -786,14 +770,19 @@
                     typewriter(
                         speechEl,
                         '* Не добре, не буду тебе катувати..\n' +
-                        '* Ось твій подарунок'
+                        '* Твій подарунок завантажується!'
                     );
                     if(giftSection) giftSection.style.display = 'none';
-                    if(finalGiftWrap){
-                        finalGiftWrap.style.display = 'block';
-                        finalGiftWrap.scrollIntoView({ behavior: 'smooth' });
-                    }
-                    setStatus('Вітаю!');
+                    
+                    // Trigger download of gift.pdf
+                    var link = document.createElement('a');
+                    link.href = 'gift.pdf';
+                    link.download = 'gift.pdf';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    setStatus('Вітаю! Подарунок завантажено.');
                 }
             }
         });
@@ -876,8 +865,7 @@
                 'https://i.ibb.co/kVqjyPW0/image.png',
                 'https://i.ibb.co/67q7d8vD/image.png',
                 'https://i.ibb.co/FL4G4454/image.png',
-                'https://i.ibb.co/23GgwVPk/image.png',
-                'https://i.ibb.co/hR8YgNbt/certificate.png'
+                'https://i.ibb.co/23GgwVPk/image.png'
             ];
 
             var loadedCount = 0;
