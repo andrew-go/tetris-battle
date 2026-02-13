@@ -1,124 +1,727 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="uk">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32-C3 BLE Controller</title>
-  <style>
-    #logArea {
-      width: 100%;
-      height: 150px;
-      border: 1px solid #ccc;
-      padding: 10px;
-      overflow-y: scroll;
-      font-family: monospace;
-      background-color: #f9f9f9;
-    }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Undertale-style Puzzle Dialogue</title>
+    <style>
+        :root{
+            --bg:#000;
+            --fg:#fff;
+            --muted:#9aa0a6;
+            --tile:#111;
+            --tile2:#1b1b1b;
+            --select:#ffe66d;
+            --boxPad:14px;
+        }
+        *{ box-sizing:border-box; }
+        html,body{height:100%;}
+        body{
+            margin:0;
+            background:var(--bg);
+            color:var(--fg);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            letter-spacing: .2px;
+            display:flex;
+            align-items:flex-start;
+            justify-content:center;
+            padding:22px 0 28px;
+            overflow:auto;
+        }
+
+        /* --- Start screen --- */
+        .startScreen{
+            position:fixed;
+            inset:0;
+            background:#000;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            z-index:9999;
+        }
+        .startBtn{
+            border:3px solid #fff;
+            background:#000;
+            color:#fff;
+            font: inherit;
+            font-size:20px;
+            padding:14px 28px;
+            cursor:pointer;
+        }
+        .startBtn:hover{ background:#0b0b0b; }
+        .startBtn:active{ transform: translateY(1px); }
+
+        .stage{
+            width:min(760px, 92vw);
+            display:flex;
+            flex-direction:column;
+            gap:14px;
+        }
+
+        .box{
+            border:3px solid var(--fg);
+            padding:var(--boxPad);
+            background: radial-gradient(ellipse at center, #0a0a0a 0%, #000 70%);
+            box-shadow: 0 0 0 4px #000 inset;
+        }
+
+        .dialogTop{
+            display:flex;
+            gap:14px;
+            align-items:center;
+        }
+
+        .portrait{
+            width:108px;
+            height:108px;
+            border:3px solid var(--fg);
+            background:#000;
+            overflow:hidden;
+            flex:0 0 auto;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .portrait img{
+            width:100%;
+            height:100%;
+            object-fit:cover;
+            image-rendering: pixelated;
+        }
+
+        .portrait.talking img {
+            animation: shake 0.5s infinite;
+        }
+
+        .speech{
+            flex:1 1 auto;
+            height: 110px; /* fixed height for ~5 lines */
+            border:3px solid var(--fg);
+            padding:12px 12px;
+            background:#000;
+            display:flex;
+            flex-direction:column;
+            justify-content:flex-start;
+            gap:6px;
+            overflow:hidden;
+        }
+
+        .speechLine{
+            margin:0;
+            font-size:14px;
+            line-height:1.45;
+            color:var(--fg);
+            white-space:pre-wrap;
+            display:-webkit-box;
+            -webkit-line-clamp:5;
+            -webkit-box-orient:vertical;
+            overflow:hidden;
+        }
+
+        .meta{
+            color:var(--muted);
+            font-size:12px;
+            margin:0;
+        }
+
+        .grid{
+            --size: 3;
+            --gap: 8px;
+            display:grid;
+            grid-template-columns: repeat(var(--size), 1fr);
+            gap: var(--gap);
+            width:min(520px, 100%);
+            aspect-ratio: 1/1;
+            margin:0 auto;
+            user-select:none;
+            outline:none;
+        }
+
+        .tile{
+            border:2px solid var(--fg);
+            background: linear-gradient(180deg, var(--tile), var(--tile2));
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            position:relative;
+            cursor:pointer;
+            transition: transform .08s ease;
+            background-repeat:no-repeat;
+            background-origin: border-box;
+            padding:0;
+        }
+
+        .tile:hover{transform: translateY(-1px);}
+
+        .tile.selected{
+            border-color: var(--select);
+            box-shadow: 0 0 0 2px #000 inset, 0 0 0 2px var(--select);
+        }
+
+        .tile.correct::after{
+            content:"";
+            position:absolute;
+            inset:6px;
+            border:2px dashed rgba(154,160,166,.55);
+            pointer-events:none;
+        }
+
+        .footerHint{
+            margin-top:10px;
+            color:var(--muted);
+            font-size:12px;
+            line-height:1.4;
+            text-align:center;
+            min-height: 1.4em;
+        }
+
+        .btnRow{
+            display:flex;
+            justify-content:center;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-top:10px;
+        }
+
+        .btn{
+            border:2px solid var(--fg);
+            padding:6px 10px;
+            background:#000;
+            color:var(--fg);
+            cursor:pointer;
+            font: inherit;
+        }
+        .btn:hover{background:#0b0b0b;}
+        .btn:active{transform: translateY(1px);}
+
+        @media (max-width: 520px){
+            .dialogTop{flex-direction:column; align-items:stretch;}
+            .portrait{width:100%; height:160px;}
+            .speech{min-height:auto;}
+        }
+
+        /* ---- Solved reveal animation ---- */
+        .revealWrap{
+            display:none;
+            width:min(520px, 100%);
+            margin:0 auto;
+            aspect-ratio: 1/1;
+            position:relative;
+            border:2px solid var(--fg);
+            background:#000;
+            overflow:hidden;
+        }
+
+        .revealWrap.show{ display:block; cursor:pointer; }
+
+        .revealImg{
+            width:100%;
+            height:100%;
+            object-fit:cover;
+            opacity:0;
+            transform: scale(0.92);
+            filter: contrast(1.15) saturate(0.9);
+            image-rendering: auto;
+            animation: revealPop 800ms ease-out forwards;
+        }
+
+        .revealWrap.show::before{
+            content:"";
+            position:absolute;
+            inset:0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+            transform: translateX(-120%);
+            animation: sweep 650ms ease-out 1;
+            pointer-events:none;
+            mix-blend-mode: screen;
+        }
+
+        @keyframes revealPop{
+            0%{ opacity:0; transform: scale(0.92); }
+            55%{ opacity:1; transform: scale(1.02); }
+            100%{ opacity:1; transform: scale(1.0); }
+        }
+
+        @keyframes sweep{
+            0%{ transform: translateX(-120%); opacity:0; }
+            20%{ opacity:1; }
+            100%{ transform: translateX(120%); opacity:0; }
+        }
+
+        .grid.hide{ animation: gridFade 350ms ease-out forwards; }
+        @keyframes gridFade{ to{ opacity:0; transform: scale(0.98); } }
+    </style>
 </head>
 <body>
-  <h1>ESP32-C3 BLE Controller</h1>
-  <p>Enter a number and send it to the ESP32-C3:</p>
-  <input type="text" id="inputField" placeholder="Enter number" />
-  <button id="sendButton">Send</button>
-  <p id="status">Status: Not connected</p>
 
-  <h2>Logs:</h2>
-  <div id="logArea"></div>
+<div class="startScreen" id="startScreen" aria-label="Start screen">
+    <button class="startBtn" id="startBtn" type="button">ПОЧАТИ</button>
+</div>
 
-  <script>
-    let bleCharacteristic;
+<main class="stage" id="gameStage" aria-label="Undertale puzzle scene">
 
-    // Function to log messages to the log area
-    function logMessage(message) {
-      const logArea = document.getElementById('logArea');
-      const timestamp = new Date().toLocaleTimeString();
-      logArea.innerHTML += `[${timestamp}] ${message}<br>`;
-      logArea.scrollTop = logArea.scrollHeight; // Auto-scroll to the bottom
-    }
+    <section class="box" aria-label="Character dialogue">
+        <div class="dialogTop">
+            <div class="portrait" aria-label="Portrait">
+                <img
+                        src="https://i.ibb.co/bRg1fYvQ/image.png"
+                        alt="Персонаж"
+                />
+            </div>
+            <div class="speech" aria-label="Speech bubble">
+                <p class="speechLine" id="speechText">* ...\n* Натисни ПОЧАТИ.</p>
+                <p class="meta">(клікни по тексту, щоб дописати миттєво)</p>
+            </div>
+        </div>
+    </section>
 
-    async function connectBLE() {
-      const serviceUuid = '12345678-1234-1234-1234-123456789abc';
-      const characteristicUuid = 'abcd1234-5678-90ab-cdef-1234567890ab';
-    
-      try {
-        // Check if there are previously allowed devices
-        const devices = await navigator.bluetooth.getDevices();
-    
-        // Log all devices for debugging
-        logMessage('Available paired devices:');
-        devices.forEach((device, index) => {
-          logMessage(`[${index}] Name: ${device.name || 'Unnamed'}, ID: ${device.id}`);
-        });
-        const savedDevice = devices.find((device) => device.name && device.name.startsWith('Схрон'));
-    
-        if (savedDevice) {
-          logMessage(`Found previously allowed device: ${savedDevice.name}`);
-          await connectToDeviceAndSetup(savedDevice, serviceUuid, characteristicUuid);
-          return;
+    <section class="box" aria-label="Puzzle">
+        <div id="grid" class="grid" tabindex="0" role="application" aria-label="Puzzle grid"></div>
+
+        <div id="revealWrap" class="revealWrap" aria-hidden="true" title="Клікни, щоб продовжити">
+            <img id="revealImg" class="revealImg" alt="Зібране зображення" />
+        </div>
+
+        <div class="btnRow" aria-label="Puzzle controls">
+            <button class="btn" id="shuffleBtn" type="button">SHUFFLE</button>
+            <button class="btn" id="resetBtn" type="button">RESET</button>
+            <button class="btn" id="hintBtn" type="button" aria-pressed="false">SHOW CORRECT</button>
+        </div>
+
+        <div class="footerHint" id="statusLine">Натисни ПОЧАТИ.</div>
+    </section>
+
+</main>
+
+<!-- Background music (starts after user presses ПОЧАТИ) -->
+<audio id="bgm" loop preload="auto">
+    <source src="bgm.mp3" type="audio/mpeg">
+</audio>
+
+<!-- Talking sound (played while text is typing) -->
+<audio id="talkingSfx" preload="auto">
+    <source src="talking.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    (function(){
+        'use strict';
+
+        // --- Levels (3 puzzles played one after another) ---
+        var LEVELS = [
+            { name: 'Рівень 1', image: 'https://i.ibb.co/2Gx8XZL/image.png', reveal: 'https://i.ibb.co/k2hxRSC9/image.png' },
+            { name: 'Рівень 2', image: 'https://i.ibb.co/kVqjyPW0/image.png', reveal: 'https://i.ibb.co/67q7d8vD/image.png' },
+            { name: 'Рівень 3', image: 'https://i.ibb.co/V0p0P6Kq/image.png', reveal: 'https://i.ibb.co/Y79mC9fC/image.png' }
+        ];
+
+        var currentLevel = 0;
+
+        function getLevel(){
+            return LEVELS[Math.max(0, Math.min(currentLevel, LEVELS.length - 1))];
         }
-    
-        // No previously allowed device, request a new one
-        logMessage('Requesting Bluetooth device...');
-        const deviceNamePrefix = 'Схрон';
-        const device = await navigator.bluetooth.requestDevice({
-          filters: [
-            {
-              namePrefix: deviceNamePrefix, // Filter by name prefix
-            },
-          ],
-          optionalServices: [serviceUuid],
+
+        function levelLabel(){
+            return ' ' + (currentLevel + 1) + '/' + LEVELS.length;
+        }
+
+        var startScreen = document.getElementById('startScreen');
+        var startBtn = document.getElementById('startBtn');
+        var stage = document.getElementById('gameStage');
+
+        var gridEl = document.getElementById('grid');
+        var shuffleBtn = document.getElementById('shuffleBtn');
+        var resetBtn = document.getElementById('resetBtn');
+        var hintBtn = document.getElementById('hintBtn');
+
+        var speechEl = document.getElementById('speechText');
+        var revealWrap = document.getElementById('revealWrap');
+        var revealImg  = document.getElementById('revealImg');
+        var statusLine = document.getElementById('statusLine');
+
+        var bgm = document.getElementById('bgm');
+        var talkingSfx = document.getElementById('talkingSfx');
+
+        var size = 3;
+        var tiles = [];
+        var moves = 0;
+        var isPlaying = false;
+        var selectedA = null;
+        var showCorrect = false;
+
+        function setStatus(text){
+            if(statusLine) statusLine.textContent = String(text || '');
+        }
+
+        function unlockAudio(){
+            // В Undertale стилі ми просто запускаємо звуки при першому жесті.
+            // Окремий unlockAudio з паузою може перебивати перший діалог.
+            if(!talkingSfx) return;
+            try {
+                talkingSfx.volume = 0.6;
+            } catch(e) {}
+        }
+
+        function startBgm(){
+            if(!bgm) return;
+            try{
+                bgm.volume = 0.45;
+                if(isFinite(bgm.duration)) bgm.currentTime = 0;
+                var p = bgm.play();
+                if(p && typeof p.catch === 'function'){
+                    p.catch(function(err){
+                        setStatus('Звук заблоковано браузером. Спробуй ще раз натиснути ПОЧАТИ.');
+                        console.warn('BGM play blocked:', err);
+                    });
+                }
+            }catch(e){
+                console.warn('BGM start error:', e);
+            }
+        }
+
+    function startTalking(){
+        if(!talkingSfx) return;
+        var portrait = document.querySelector('.portrait');
+        if(portrait) portrait.classList.add('talking');
+        try{
+            talkingSfx.pause();
+            talkingSfx.currentTime = 0;
+            talkingSfx.loop = true;
+            talkingSfx.volume = 0.6;
+            var p = talkingSfx.play();
+            if(p && typeof p.catch === 'function') p.catch(function(){});
+        }catch(e){}
+    }
+
+    function stopTalking(){
+        if(!talkingSfx) return;
+        var portrait = document.querySelector('.portrait');
+        if(portrait) portrait.classList.remove('talking');
+        try{
+            talkingSfx.pause();
+            talkingSfx.currentTime = 0;
+            talkingSfx.loop = false;
+        }catch(e){}
+    }
+
+    function typewriter(el, text, speed){
+        if(!el) return;
+        text = String(text || '');
+        speed = (typeof speed === 'number') ? speed : 45;
+
+        el.textContent = '';
+        var i = 0;
+        var done = false;
+
+        startTalking();
+
+        var onClick = function(){
+            done = true;
+            el.textContent = text;
+            stopTalking();
+            el.removeEventListener('click', onClick);
+        };
+        el.addEventListener('click', onClick);
+
+        var step = function(){
+            if(done) return;
+            el.textContent = text.slice(0, i);
+            i++;
+            if(i <= text.length){
+                setTimeout(step, speed);
+            } else {
+                stopTalking();
+            }
+        };
+        step();
+    }
+
+    function swap(i,j){
+        var t = tiles[i];
+        tiles[i] = tiles[j];
+        tiles[j] = t;
+    }
+
+    function isSolved(){
+        for(var i=0;i<tiles.length;i++){
+            if(tiles[i] !== i+1) return false;
+        }
+        return true;
+    }
+
+    function hideReveal(){
+        if(revealWrap) revealWrap.classList.remove('show');
+        if(revealWrap) revealWrap.setAttribute('aria-hidden', 'true');
+        if(revealWrap) revealWrap.onclick = null;
+        if(gridEl) gridEl.classList.remove('hide');
+        if(gridEl) gridEl.style.display = '';
+    }
+
+    function showReveal(){
+        if(!gridEl) return;
+        gridEl.classList.add('hide');
+        setTimeout(function(){
+            gridEl.style.display = 'none';
+            if(revealImg) revealImg.src = getLevel().reveal;
+            if(revealWrap){
+                revealWrap.classList.add('show');
+                revealWrap.setAttribute('aria-hidden', 'false');
+                revealWrap.onclick = function(){
+                    revealWrap.onclick = null;
+                    nextLevel();
+                };
+            }
+            typewriter(
+                speechEl,
+                '* Ок.\n' +
+                '* Подивись уважно.\n' +
+                '* Клікни по картинці, щоб піти далі.'
+            );
+            setStatus('Клікни по зображенню, щоб продовжити… (Рівень' + levelLabel() + ')');
+        }, 360);
+    }
+
+    function initBoardSolved(){
+        hideReveal();
+        if(gridEl) gridEl.style.setProperty('--size', String(size));
+        tiles = [];
+        for(var i=1;i<=size*size;i++) tiles.push(i);
+        moves = 0;
+        isPlaying = false;
+        selectedA = null;
+        showCorrect = false;
+    }
+
+    function shuffleInPlace(){
+        for(var i=tiles.length-1;i>0;i--){
+            var j = Math.floor(Math.random()*(i+1));
+            swap(i,j);
+        }
+        if(isSolved()) swap(0,1);
+    }
+
+    function render(){
+        if(!gridEl) return;
+        gridEl.innerHTML = '';
+
+        for(var idx=0; idx<tiles.length; idx++){
+            var val = tiles[idx];
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'tile';
+            btn.setAttribute('data-idx', String(idx));
+
+            if(selectedA === idx) btn.classList.add('selected');
+            if(showCorrect && tiles[idx] === idx+1) btn.classList.add('correct');
+
+            var originalIndex = val - 1;
+            var row = Math.floor(originalIndex / size);
+            var col = originalIndex % size;
+
+            btn.style.backgroundImage = 'url(' + getLevel().image + ')';
+            btn.style.backgroundSize = (size * 100) + '% ' + (size * 100) + '%';
+            
+            var posX = (col * 100 / (size - 1));
+            var posY = (row * 100 / (size - 1));
+            btn.style.backgroundPosition = posX + '% ' + posY + '%';
+
+            (function(i){
+                btn.addEventListener('click', function(){ onTileClick(i); });
+            })(idx);
+
+            gridEl.appendChild(btn);
+        }
+    }
+
+    function onTileClick(idx){
+        if(!isPlaying){
+            isPlaying = true;
+            typewriter(
+                speechEl,
+                '* Гей.\n' +
+                '* Тут усе просто.\n' +
+                '* Вибери ДВІ плитки — і я їх поміняю місцями.'
+            );
+            setStatus('Вибери першу плитку… (Рівень' + levelLabel() + ')');
+        }
+
+        if(selectedA === null){
+            selectedA = idx;
+            render();
+            setStatus('Тепер вибери другу плитку…');
+            return;
+        }
+
+        if(selectedA === idx){
+            selectedA = null;
+            render();
+            setStatus('Ок, скасовано. Вибери першу плитку…');
+            return;
+        }
+
+        swap(selectedA, idx);
+        moves++;
+        selectedA = null;
+        render();
+
+        if(isSolved()){
+            isPlaying = false;
+            typewriter(
+                speechEl,
+                '* ...\n' +
+                '* Ого.\n' +
+                '* Ти справді це зробив(ла).\n' +
+                '* Дивись.\n' +
+                '* (Клікни по картинці, щоб продовжити.)'
+            );
+            setStatus('Готово! Рівень' + levelLabel() + ' • Ходи: ' + moves);
+            showReveal();
+        } else {
+            setStatus('Ще раз: вибери 2 плитки. (Ходи: ' + moves + ')');
+        }
+    }
+
+    function startNewShuffledGame(dialogText){
+        initBoardSolved();
+        shuffleInPlace();
+        render();
+        if(dialogText){
+            typewriter(speechEl, dialogText);
+        }
+        setStatus('Обери першу плитку… (Рівень' + levelLabel() + ')');
+    }
+
+    function onShuffle(){
+        startNewShuffledGame(
+            '* Добре.\n' +
+            '* Я перемішав ще раз.\n' +
+            '* ' + getLevel().name + '.'
+        );
+    }
+
+    function onReset(){
+        startNewShuffledGame(
+            '* Скинули.\n' +
+            '* Я знову перемішав.\n' +
+            '* ' + getLevel().name + '.'
+        );
+    }
+
+    function nextLevel(){
+        if(currentLevel + 1 < LEVELS.length){
+            currentLevel++;
+            startNewShuffledGame(
+                '* Добре.\n' +
+                '* Наступний пазл.\n' +
+                '* ' + getLevel().name + '.'
+            );
+        } else {
+            typewriter(
+                speechEl,
+                '* ...\n' +
+                '* Ти пройшов(ла) всі 3 рівні.\n' +
+                '* Непогано.'
+            );
+            setStatus('Усі рівні пройдено!');
+        }
+    }
+
+    // --------- Tests ---------
+    function runTests(){
+        var ok = true;
+        function assert(cond, msg){
+            if(!cond){
+                ok = false;
+                console.error('[TEST FAIL]', msg);
+            }
+        }
+
+        assert(!!startBtn, 'startBtn exists');
+        assert(!!gridEl, 'gridEl exists');
+        assert(!!speechEl, 'speechEl exists');
+        assert(!!statusLine, 'statusLine exists');
+        assert(Array.isArray(LEVELS) && LEVELS.length === 3, 'LEVELS has 3 levels');
+
+        initBoardSolved();
+        assert(tiles.length === 9, 'tiles length is 9');
+        assert(isSolved() === true, 'initial board is solved');
+
+        shuffleInPlace();
+        assert(isSolved() === false, 'shuffle produces non-solved');
+
+        var prev = currentLevel;
+        nextLevel();
+        assert(currentLevel === prev + 1, 'nextLevel increments currentLevel');
+        currentLevel = 0;
+
+        if(!ok){
+            setStatus('* Помилка: тести не пройдено. Відкрий DevTools → Console.');
+        }
+    }
+
+    window.addEventListener('error', function(e){
+        try{
+            var msg = (e && e.message) ? String(e.message) : 'Unknown error';
+            setStatus('* Помилка: ' + msg + ' (деталі в DevTools → Console)');
+        }catch(_){/* ignore */}
+    });
+
+    function boot(){
+        runTests();
+        setStatus('Натисни ПОЧАТИ.');
+        // do not run typewriter before user gesture; keep static text
+    }
+
+    if(shuffleBtn) shuffleBtn.addEventListener('click', onShuffle);
+    if(resetBtn) resetBtn.addEventListener('click', onReset);
+    if(hintBtn) hintBtn.addEventListener('click', function(){
+        showCorrect = !showCorrect;
+        hintBtn.setAttribute('aria-pressed', String(showCorrect));
+        hintBtn.textContent = showCorrect ? 'HIDE CORRECT' : 'SHOW CORRECT';
+        render();
+        setStatus(showCorrect ? 'Підсвічую правильні.' : 'Підсвітку вимкнено.');
+    });
+
+    if(startBtn){
+        startBtn.addEventListener('click', function(){
+            // Hide start screen
+            if(startScreen) startScreen.style.display = 'none';
+
+            // Start BGM on this gesture, and separately unlock talking SFX
+            startBgm();
+            unlockAudio();
+
+            // Start level 1
+            currentLevel = 0;
+            startNewShuffledGame(
+                '* Привіт.\n' +
+                '* Я вже все перемішав.\n' +
+                '* Спробуй скласти пазл.'
+            );
         });
-    
-        logMessage('Connecting to GATT server...');
-        await connectToDeviceAndSetup(device, serviceUuid, characteristicUuid);
-      } catch (error) {
-        logMessage(`Connection failed: ${error}`);
-        document.getElementById('status').textContent = 'Status: Failed to connect';
-      }
-    }
-    
-    async function connectToDeviceAndSetup(device, serviceUuid, characteristicUuid) {
-      try {
-        logMessage(`Connecting to device: ${device.name}`);
-        document.getElementById('status').textContent = 'Status: Connecting...';
-    
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(serviceUuid);
-        bleCharacteristic = await service.getCharacteristic(characteristicUuid);
-    
-        logMessage('Connected to BLE device!');
-        document.getElementById('status').textContent = `Status: Connected to ${device.name}`;
-      } catch (error) {
-        logMessage(`Failed to connect to device: ${error}`);
-      }
     }
 
-    async function sendData() {
-      const inputField = document.getElementById('inputField');
-      const value = inputField.value;
-
-      if (!bleCharacteristic) {
-        logMessage('Error: Not connected to ESP32-C3!');
-        alert('Please connect to the ESP32-C3 first!');
-        return;
-      }
-
-      try {
-        const encoder = new TextEncoder();
-        await bleCharacteristic.writeValue(encoder.encode(value));
-        logMessage(`Data sent: ${value}`);
-      } catch (error) {
-        logMessage(`Failed to send data: ${error}`);
-        console.error('Failed to send data:', error);
-      }
+    if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
     }
 
-    // Add event listeners
-    document.getElementById('sendButton').addEventListener('click', sendData);
-
-    // Automatically attempt to connect to BLE when the page loads
-    connectBLE();
-  </script>
+    })();
+</script>
 </body>
 </html>
