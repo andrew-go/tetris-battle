@@ -428,6 +428,64 @@
         var selectedA = null;
         var showCorrect = false;
 
+        // --- Dialogue System ---
+        var dialogueQueue = [];
+        var onDialogueEnd = null;
+        var isWaitingForClick = false;
+
+        function showNextDialogue(){
+            if(dialogueQueue.length > 0){
+                var text = dialogueQueue.shift();
+                isWaitingForClick = false;
+                typewriter(speechEl, text, 45, function(){
+                    if(dialogueQueue.length > 0 || onDialogueEnd){
+                        isWaitingForClick = true;
+                        setStatus('Клікни будь-де, щоб продовжити...');
+                    }
+                });
+            } else if(onDialogueEnd){
+                var callback = onDialogueEnd;
+                onDialogueEnd = null;
+                isWaitingForClick = false;
+                callback();
+            }
+        }
+
+        // Global click to advance dialogue
+        document.addEventListener('click', function(e){
+            // If we are waiting for click to advance dialogue, and not clicking a button/input
+            if(isWaitingForClick){
+                var tag = e.target.tagName.toLowerCase();
+                if(tag !== 'button' && tag !== 'input'){
+                    showNextDialogue();
+                }
+                return;
+            }
+
+            if(isGiftDownloaded){
+                var tag = e.target.tagName.toLowerCase();
+                if(tag !== 'button' && tag !== 'input'){
+                    isGiftDownloaded = false;
+                    startDialogueSequence([
+                        '* То що, думаєш це кінець?',
+                        '* ...',
+                        '* ...',
+                        '* ...',
+                        '* ...',
+                        '* Ні! Це тільки початок!',
+                        '* Це початок наших нових пригод разом!',
+                        '* Я ЛЮБЛЮ ТЕБЕ!'
+                    ]);
+                }
+            }
+        }, true);
+
+        function startDialogueSequence(lines, callback){
+            dialogueQueue = lines.slice();
+            onDialogueEnd = callback;
+            showNextDialogue();
+        }
+
         function setStatus(text){
             if(statusLine) statusLine.textContent = String(text || '');
         }
@@ -483,7 +541,10 @@
         }catch(e){}
     }
 
-    function typewriter(el, text, speed){
+    var isGameStarted = false;
+    var isGiftDownloaded = false;
+
+    function typewriter(el, text, speed, onComplete){
         if(!el) return;
         text = String(text || '');
         speed = (typeof speed === 'number') ? speed : 45;
@@ -492,13 +553,15 @@
         var i = 0;
         var done = false;
 
-        startTalking();
+        if(isGameStarted) startTalking();
 
         var onClick = function(){
+            if(done) return;
             done = true;
             el.textContent = text;
             stopTalking();
             el.removeEventListener('click', onClick);
+            if(onComplete) onComplete();
         };
         el.addEventListener('click', onClick);
 
@@ -510,6 +573,8 @@
                 setTimeout(step, speed);
             } else {
                 stopTalking();
+                el.removeEventListener('click', onClick);
+                if(onComplete) onComplete();
             }
         };
         step();
@@ -547,17 +612,42 @@
                 revealWrap.setAttribute('aria-hidden', 'false');
                 revealWrap.onclick = function(){
                     revealWrap.onclick = null;
-                    nextLevel();
+                    onPuzzleSolvedDialogue();
                 };
             }
-            typewriter(
-                speechEl,
-                '* Ок.\n' +
-                '* Подивись уважно.\n' +
-                '* Клікни по картинці, щоб піти далі.'
-            );
-            setStatus('Клікни по зображенню, щоб продовжити… (Рівень' + levelLabel() + ')');
+            setStatus('Готово!');
         }, 360);
+    }
+
+    function onPuzzleSolvedDialogue(){
+        if(currentLevel === 0){
+            startDialogueSequence([
+                '* ...\n* Ого.\n* Ти справді це зробила. Ти крута!',
+                '* Ну, добре!\n* Наступний буде складніше!'
+            ], function(){
+                nextLevel();
+            });
+        } else if(currentLevel === 1){
+            startDialogueSequence([
+                '* ...\n* ...\n* Ти що, майстер з пазлів?! Я захоплююсь тобою!'
+            ], function(){
+                startDialogueSequence([
+                    '* Ти мій всесвіт!\n* А ще ти така розумна!\n* ... проте я не здамся! Спробуй скласти ось цей!'
+                ], function(){
+                    nextLevel();
+                });
+            });
+        } else if(currentLevel === 2){
+            startDialogueSequence([
+                '* ...\n* Неймовірно!\n* Я намагався перемогти тебе..'
+            ], function(){
+                startDialogueSequence([
+                    '* ...\n* Проте ти перемогла мене!\n* ...'
+                ], function(){
+                   nextLevel(); // This will handle the end-of-game sequence
+                });
+            });
+        }
     }
 
     function initBoardSolved(){
@@ -621,7 +711,7 @@
                 '* Тут усе просто.\n' +
                 '* Вибери ДВІ плитки — і я їх поміняю місцями.'
             );
-            setStatus('Вибери першу плитку… (Рівень' + levelLabel() + ')');
+            setStatus('Вибери першу плитку…');
         }
 
         if(selectedA === null){
@@ -645,14 +735,6 @@
 
         if(isSolved()){
             isPlaying = false;
-            typewriter(
-                speechEl,
-                '* ...\n' +
-                '* Ого.\n' +
-                '* Ти справді це зробив(ла).\n' +
-                '* Дивись.\n' +
-                '* (Клікни по картинці, щоб продовжити.)'
-            );
             setStatus('Готово! Рівень' + levelLabel() + ' • Ходи: ' + moves);
             showReveal();
         } else {
@@ -671,56 +753,40 @@
     }
 
     function onShuffle(){
-        startNewShuffledGame(
-            '* Добре.\n' +
-            '* Я перемішав ще раз.\n' +
-            '* ' + getLevel().name + '.'
-        );
+        startNewShuffledGame();
+        typewriter(speechEl, '* Я перемішав ще раз.\n* Спробуй ще раз.');
     }
 
     function onReset(){
-        startNewShuffledGame(
-            '* Скинули.\n' +
-            '* Я знову перемішав.\n' +
-            '* ' + getLevel().name + '.'
-        );
+        startNewShuffledGame();
+        typewriter(speechEl, '* Скинули.\n* Я знову перемішав.');
     }
 
     function nextLevel(){
         if(currentLevel + 1 < LEVELS.length){
             currentLevel++;
-            startNewShuffledGame(
-                '* Добре.\n' +
-                '* Наступний пазл.\n' +
-                '* ' + getLevel().name + '.'
-            );
+            startNewShuffledGame();
+            typewriter(speechEl, '* Я вже все перемішав.\n* Спробуй скласти пазл.');
         } else {
-            // End of Level 3
+            // Final sequence
             hideReveal();
             if(gridEl) gridEl.style.display = 'none';
             var btnRow = document.querySelector('.btnRow');
             if(btnRow) btnRow.style.display = 'none';
             if(statusLine) statusLine.style.display = 'none';
 
-            typewriter(
-                speechEl,
-                '* Лізу, я кохаю тебе без тями!\n' +
-                '* Ти найкраще що є у моєму житті!\n' +
-                '* Будь зі мною завжди!'
-            );
-            setStatus('Кінець гри?');
-
-            setTimeout(function(){
-                typewriter(
-                    speechEl,
-                    '* Я знаю, що ми далеко..\n' +
-                    '* Але всеодно хочу подарувати тобі подарунок'
-                );
+            startDialogueSequence([
+                '* ...\n* Лізу..\n* Я не уявляю свого життя без тебе!',
+                '* Ти щось неймовірне!\n* Ти - мій всесвіт!\n* Я люблю тебе!',
+                '* Я знаю, що ми далеко..\n* І почуття складно передати словами..\n* ...',
+                '* Тому я хочу подарувати тобі невеличкий подарунок!\n* Ось тримай..'
+            ], function(){
                 if(giftSection){
                     giftSection.style.display = 'flex';
                     if(passwordInput) passwordInput.style.display = 'none';
                 }
-            }, 3500);
+                setStatus('Отримай свій подарунок.');
+            });
         }
     }
 
@@ -749,7 +815,7 @@
                     typewriter(
                         speechEl,
                         '* Ха ха\n' +
-                        '* А як де місяць?'
+                        '* А як же місяць?'
                     );
                     passwordInput.value = '';
                     passwordInput.focus();
@@ -769,7 +835,7 @@
                 if(val === '07' || val === '7'){
                     typewriter(
                         speechEl,
-                        '* Не добре, не буду тебе катувати..\n' +
+                        '* Ну добре, не буду тебе катувати..\n' +
                         '* Твій подарунок завантажується!'
                     );
                     if(giftSection) giftSection.style.display = 'none';
@@ -783,6 +849,7 @@
                     document.body.removeChild(link);
                     
                     setStatus('Вітаю! Подарунок завантажено.');
+                    isGiftDownloaded = true;
                 }
             }
         });
@@ -883,19 +950,29 @@
             }
 
             function finishLoading(){
+                isGameStarted = true;
                 if(startScreen) startScreen.style.display = 'none';
 
-                // Start BGM on this gesture, and separately unlock talking SFX
                 startBgm();
                 unlockAudio();
 
-                // Start level 1
-                currentLevel = 0;
-                startNewShuffledGame(
-                    '* Привіт.\n' +
-                    '* Я вже все перемішав.\n' +
-                    '* Спробуй скласти пазл.'
-                );
+                // Hide puzzle elements initially
+                if(gridEl) gridEl.style.display = 'none';
+                var btnRow = document.querySelector('.btnRow');
+                if(btnRow) btnRow.style.display = 'none';
+
+                // Initial dialogue sequence
+                startDialogueSequence([
+                    '* О, привіт. Ти вже тут!\n* Я не очікував тебе так швидко побачити!'
+                ], function(){
+                    startDialogueSequence([
+                        '* Я тут дещо підготував для тебе..\n* Це пазл!'
+                    ], function(){
+                        currentLevel = 0;
+                        if(btnRow) btnRow.style.display = 'flex';
+                        startNewShuffledGame('* Я вже все перемішав.\n* Спробуй скласти пазл.');
+                    });
+                });
             }
 
             assets.forEach(function(url){
